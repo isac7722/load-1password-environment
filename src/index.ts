@@ -1,5 +1,5 @@
 import * as core from '@actions/core';
-import { load } from './load.ts';
+import { load, ConfigurationError } from './load.ts';
 import { readVariables } from './sdk.ts';
 
 const timeout = setTimeout(() => {
@@ -20,4 +20,4 @@ async function run() {
 }
 
 // Only load() validation errors are intended for display; avoid raw filesystem/SDK errors.
-run().catch(() => core.setFailed('1Password Environment 로딩에 실패했습니다. 입력·필수 값·권한·연결 상태를 확인하세요.')).finally(() => clearTimeout(timeout));
+run().catch(error => core.setFailed(error instanceof ConfigurationError ? error.message : '1Password Environment 전달에 실패했습니다. runner 환경 파일을 확인하세요.')).finally(() => clearTimeout(timeout));

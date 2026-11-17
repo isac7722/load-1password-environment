@@ -1,6 +1,7 @@
 name: Verify Action
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 permissions:
@@ -37,3 +38,7 @@ jobs:
           npm ci
           npm run check
           git diff --exit-code -- dist
+      - name: Export fixture through the real GitHub environment file
+        run: node --experimental-strip-types scripts/environment-roundtrip.ts export
+      - name: Verify environment values in the following step
+        run: node --experimental-strip-types scripts/environment-roundtrip.ts verify
