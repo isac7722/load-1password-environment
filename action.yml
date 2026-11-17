@@ -1,0 +1,19 @@
+name: Load 1Password Environment
+description: 선택한 1Password Environment 변수를 마스킹하고 후속 step에 전달합니다.
+author: isac7722
+branding:
+  icon: lock
+  color: blue
+inputs:
+  service-account-token:
+    description: 대상 Environment 읽기 권한을 가진 서비스 계정 토큰
+    required: true
+  environment-id:
+    description: 1Password Environment ID
+    required: true
+  variables:
+    description: 한 줄에 NAME 또는 DEST=SOURCE. 모든 요청 값은 필수입니다.
+    required: true
+runs:
+  using: node24
+  main: dist/index.js
