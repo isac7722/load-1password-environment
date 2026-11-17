@@ -22077,19 +22077,19 @@ var reserved = /^(GITHUB_|RUNNER_|ACTIONS_|INPUT_|OP_|LD_|DYLD_)/i;
 var special = /* @__PURE__ */ new Set(["PATH", "HOME", "SHELL", "ENV", "BASH_ENV", "NODE_OPTIONS", "NODE_PATH", "PYTHONPATH", "PYTHONHOME"]);
 function parseMappings(input) {
   const lines = input.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  if (!lines.length) throw new ConfigurationError("variables\uC5D0 \uD558\uB098 \uC774\uC0C1\uC758 \uBCC0\uC218\uB97C \uC9C0\uC815\uD558\uC138\uC694.");
+  if (!lines.length) throw new ConfigurationError("Specify at least one variable in variables.");
   const seen = /* @__PURE__ */ new Set();
   return lines.map((line) => {
     const parts = line.split("=");
     const destination = parts[0]?.trim();
     const source = (parts[1] ?? parts[0])?.trim();
     if (parts.length > 2 || !namePattern.test(destination) || !namePattern.test(source)) {
-      throw new ConfigurationError("variables\uB294 NAME \uB610\uB294 DEST=SOURCE \uD615\uC2DD\uC774\uC5B4\uC57C \uD569\uB2C8\uB2E4.");
+      throw new ConfigurationError("Each variables line must be NAME or DEST=SOURCE.");
     }
     if (reserved.test(destination) || special.has(destination.toUpperCase())) {
-      throw new ConfigurationError("runner\xB7\uC778\uC99D\xB7\uD504\uB85C\uC138\uC2A4 \uC81C\uC5B4 \uBCC0\uC218\uB294 \uB300\uC0C1\uC73C\uB85C \uC0AC\uC6A9\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
+      throw new ConfigurationError("Runner, authentication, and process-control variables cannot be used as destinations.");
     }
-    if (seen.has(destination)) throw new ConfigurationError("\uB300\uC0C1 \uBCC0\uC218 \uC774\uB984\uC774 \uC911\uBCF5\uB418\uC5C8\uC2B5\uB2C8\uB2E4.");
+    if (seen.has(destination)) throw new ConfigurationError("Duplicate destination variable name.");
     seen.add(destination);
     return { destination, source };
   });
@@ -22098,14 +22098,14 @@ function selectVariables(mappings, values) {
   const available = /* @__PURE__ */ new Map();
   for (const variable of values) {
     if (typeof variable.name !== "string" || typeof variable.value !== "string" || available.has(variable.name)) {
-      throw new ConfigurationError("Environment \uC751\uB2F5 \uD615\uC2DD\uC774 \uC62C\uBC14\uB974\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.");
+      throw new ConfigurationError("The Environment response has an invalid format.");
     }
     available.set(variable.name, variable.value);
   }
   return mappings.map(({ destination, source }) => {
     const value = available.get(source);
     if (value === void 0 || value.length === 0 || value.includes("\0")) {
-      throw new ConfigurationError(`\uD544\uC218 \uBCC0\uC218 ${source}\uC758 \uAC12\uC774 \uC5C6\uAC70\uB098 \uBE48 \uAC12 \uB610\uB294 \uC9C0\uC6D0\uD558\uC9C0 \uC54A\uB294 \uAC12\uC785\uB2C8\uB2E4.`);
+      throw new ConfigurationError(`Required variable ${source} is missing, empty, or contains an unsupported value.`);
     }
     return { name: destination, value };
   });
@@ -22125,14 +22125,14 @@ ${delimiter}
 async function load(options) {
   if (options.token) options.mask(options.token);
   if (!options.token || !/^[A-Za-z0-9_-]+$/.test(options.environmentId) || !options.envFile) {
-    throw new ConfigurationError("\uD1A0\uD070, Environment ID\uC640 GitHub \uD658\uACBD \uD30C\uC77C\uC774 \uD544\uC694\uD569\uB2C8\uB2E4.");
+    throw new ConfigurationError("A token, an Environment ID, and the GitHub environment file are required.");
   }
   const mappings = parseMappings(options.variables);
   let values;
   try {
     values = await options.read(options.token, options.environmentId);
   } catch {
-    throw new ConfigurationError("1Password \uC870\uD68C\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4. \uD1A0\uD070 \uAD8C\uD55C\xB7Environment ID\xB7\uC5F0\uACB0 \uC0C1\uD0DC\uB97C \uD655\uC778\uD558\uC138\uC694.");
+    throw new ConfigurationError("1Password lookup failed. Check the token permissions, Environment ID, and connectivity.");
   }
   const selected = selectVariables(mappings, values);
   for (const { value } of selected) {
@@ -22157,7 +22157,7 @@ var readVariables = async (token, environmentId) => {
 
 // src/index.ts
 var timeout = setTimeout(() => {
-  setFailed("1Password \uC870\uD68C \uC81C\uD55C \uC2DC\uAC04(60\uCD08)\uC744 \uCD08\uACFC\uD588\uC2B5\uB2C8\uB2E4.");
+  setFailed("1Password lookup exceeded the 60-second time limit.");
   process.exit(1);
 }, 6e4);
 async function run() {
@@ -22169,7 +22169,7 @@ async function run() {
     read: readVariables,
     mask: setSecret
   });
-  info(`${count}\uAC1C \uBCC0\uC218\uB97C \uD6C4\uC18D step\uC5D0 \uC804\uB2EC\uD588\uC2B5\uB2C8\uB2E4.`);
+  info(`Passed ${count} variable(s) to subsequent steps.`);
 }
-run().catch((error2) => setFailed(error2 instanceof ConfigurationError ? error2.message : "1Password Environment \uC804\uB2EC\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4. runner \uD658\uACBD \uD30C\uC77C\uC744 \uD655\uC778\uD558\uC138\uC694.")).finally(() => clearTimeout(timeout));
+run().catch((error2) => setFailed(error2 instanceof ConfigurationError ? error2.message : "Failed to pass the 1Password Environment variables. Check the runner environment file.")).finally(() => clearTimeout(timeout));
 /*! For license information please see index.js.LEGAL.txt */

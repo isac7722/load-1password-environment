@@ -12,19 +12,19 @@ const special = new Set(['PATH', 'HOME', 'SHELL', 'ENV', 'BASH_ENV', 'NODE_OPTIO
 
 export function parseMappings(input: string): Mapping[] {
   const lines = input.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-  if (!lines.length) throw new ConfigurationError('variables에 하나 이상의 변수를 지정하세요.');
+  if (!lines.length) throw new ConfigurationError('Specify at least one variable in variables.');
   const seen = new Set<string>();
   return lines.map(line => {
     const parts = line.split('=');
     const destination = parts[0]?.trim();
     const source = (parts[1] ?? parts[0])?.trim();
     if (parts.length > 2 || !namePattern.test(destination) || !namePattern.test(source)) {
-      throw new ConfigurationError('variables는 NAME 또는 DEST=SOURCE 형식이어야 합니다.');
+      throw new ConfigurationError('Each variables line must be NAME or DEST=SOURCE.');
     }
     if (reserved.test(destination) || special.has(destination.toUpperCase())) {
-      throw new ConfigurationError('runner·인증·프로세스 제어 변수는 대상으로 사용할 수 없습니다.');
+      throw new ConfigurationError('Runner, authentication, and process-control variables cannot be used as destinations.');
     }
-    if (seen.has(destination)) throw new ConfigurationError('대상 변수 이름이 중복되었습니다.');
+    if (seen.has(destination)) throw new ConfigurationError('Duplicate destination variable name.');
     seen.add(destination);
     return { destination, source };
   });
@@ -34,14 +34,14 @@ export function selectVariables(mappings: Mapping[], values: Variable[]): Variab
   const available = new Map<string, string>();
   for (const variable of values) {
     if (typeof variable.name !== 'string' || typeof variable.value !== 'string' || available.has(variable.name)) {
-      throw new ConfigurationError('Environment 응답 형식이 올바르지 않습니다.');
+      throw new ConfigurationError('The Environment response has an invalid format.');
     }
     available.set(variable.name, variable.value);
   }
   return mappings.map(({ destination, source }) => {
     const value = available.get(source);
     if (value === undefined || value.length === 0 || value.includes('\0')) {
-      throw new ConfigurationError(`필수 변수 ${source}의 값이 없거나 빈 값 또는 지원하지 않는 값입니다.`);
+      throw new ConfigurationError(`Required variable ${source} is missing, empty, or contains an unsupported value.`);
     }
     return { name: destination, value };
   });
@@ -62,12 +62,12 @@ export async function load(options: {
   // Never expose SDK exceptions, which may contain credentials or response bodies.
   if (options.token) options.mask(options.token);
   if (!options.token || !/^[A-Za-z0-9_-]+$/.test(options.environmentId) || !options.envFile) {
-    throw new ConfigurationError('토큰, Environment ID와 GitHub 환경 파일이 필요합니다.');
+    throw new ConfigurationError('A token, an Environment ID, and the GitHub environment file are required.');
   }
   const mappings = parseMappings(options.variables);
   let values: Variable[];
   try { values = await options.read(options.token, options.environmentId); }
-  catch { throw new ConfigurationError('1Password 조회에 실패했습니다. 토큰 권한·Environment ID·연결 상태를 확인하세요.'); }
+  catch { throw new ConfigurationError('1Password lookup failed. Check the token permissions, Environment ID, and connectivity.'); }
   const selected = selectVariables(mappings, values);
   for (const { value } of selected) {
     options.mask(value);

@@ -13,7 +13,7 @@ try {
     env:{PATH:process.env.PATH,GITHUB_ENV:join(dir,'env'),'INPUT_SERVICE-ACCOUNT-TOKEN':'invalid-test-token','INPUT_ENVIRONMENT-ID':'test','INPUT_VARIABLES':'TEST_VALUE'},
   });
   assert.equal(result.status,1);
-  assert.match(result.stdout,/::error::1Password 조회에 실패/);
+  assert.match(result.stdout,/::error::1Password lookup failed/);
   assert.doesNotMatch(result.stderr,/ENOENT|MODULE_NOT_FOUND|WebAssembly|Cannot find/);
   assert.equal(readFileSync(join(dir,'env'),'utf8'),'');
   // The fake token may appear only in the GitHub masking command, never diagnostics.

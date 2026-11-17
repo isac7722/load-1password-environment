@@ -1,6 +1,8 @@
 # Load 1Password Environment
 
-1Password Environment의 필요한 변수를 선택해 다음 GitHub Actions step에 전달한다. TypeScript·Node 24와 공식 1Password SDK를 사용하며 Python·op CLI 설치는 필요 없다.
+**English** | [한국어](README.ko.md)
+
+Selects the variables you need from a 1Password Environment and passes them to subsequent GitHub Actions steps. Built with TypeScript, Node 24, and the official 1Password SDK; no Python or `op` CLI installation is required.
 
 ```yaml
 - name: Load deployment configuration
@@ -20,38 +22,38 @@
     aws-region: ${{ env.AWS_REGION }}
 ```
 
-AWS OIDC를 사용하려면 job에 `id-token: write` 권한도 필요하다. 운영에서는 Action을 검증한 전체 커밋 SHA로 고정하는 것을 권장한다.
+AWS OIDC also requires the `id-token: write` permission on the job. In production, pin the Action to the full commit SHA you have verified.
 
-## 계약
+## Contract
 
-- 토큰에는 필요한 Environment 읽기 권한만 부여한다.
-- `variables`는 한 줄에 `NAME` 또는 `DEST=SOURCE`를 사용한다. 빈 줄은 무시한다.
-- 요청한 모든 값이 있어야 하며 빈 문자열·NUL 문자는 거부한다. 전체 검증 후 한 번에 후속 step 환경변수로 전달한다.
-- 다중 행·공백·따옴표·달러 기호를 보존한다. 쉘 스크립트로 평가하지 않는다.
-- 요청한 값과 토큰을 로그 마스킹에 등록한다. 원본 SDK 오류·응답·비밀값은 로그에 출력하지 않는다. GitHub의 마스킹은 인코딩·가공된 값까지 보호하지 않으므로 값을 출력하지 않는다.
-- `.env`나 별도 비밀값 파일을 생성하지 않는다. GitHub가 제공하는 `GITHUB_ENV` 파일을 사용하므로 runner의 임시 환경 파일과 후속 step에는 값이 존재한다. 환경변수는 같은 job의 이후 step에만 전달된다.
-- 같은 대상 변수를 여러 번 매핑하면 실패한다. 후속 Action 호출에서 같은 이름을 명시하면 기존 값을 덮어쓴다.
-- `GITHUB_*`, `RUNNER_*`, `ACTIONS_*`, `INPUT_*`, `OP_*`, `LD_*`, `DYLD_*`, PATH·HOME·SHELL·ENV·BASH_ENV·NODE_OPTIONS·NODE_PATH·PYTHONPATH·PYTHONHOME는 대상 이름으로 거부한다.
-- SDK는 Environment 전체를 읽고 메모리에서 선택한다. 선택하지 않은 값은 export하지 않는다. 접근 범위 자체를 줄이려면 Environment와 서비스 계정 권한을 분리한다.
-- 조회 실패는 Action 실패로 처리하며 과거 값으로 대체하지 않는다. 실행 제한 시간은 60초다.
+- Grant the token read access to only the Environment it needs.
+- `variables` takes one `NAME` or `DEST=SOURCE` per line. Blank lines are ignored.
+- Every requested value must exist; empty strings and NUL characters are rejected. Values are passed to subsequent steps as environment variables in a single write, only after all of them have been validated.
+- Multiline values, whitespace, quotes, and dollar signs are preserved. Values are never evaluated as shell script.
+- Requested values and the token are registered for log masking. Raw SDK errors, responses, and secret values are never written to the log. GitHub masking does not protect encoded or transformed values, so do not print the values.
+- No `.env` or separate secret file is created. The Action uses the `GITHUB_ENV` file provided by GitHub, so the values exist in the runner's temporary environment file and in subsequent steps. Environment variables are passed only to later steps of the same job.
+- Mapping the same destination variable more than once fails. A later Action call that names the same variable overwrites the earlier value.
+- `GITHUB_*`, `RUNNER_*`, `ACTIONS_*`, `INPUT_*`, `OP_*`, `LD_*`, `DYLD_*`, and PATH, HOME, SHELL, ENV, BASH_ENV, NODE_OPTIONS, NODE_PATH, PYTHONPATH, PYTHONHOME are rejected as destination names.
+- The SDK reads the entire Environment and the selection happens in memory. Unselected values are not exported. To narrow the access scope itself, split Environments and service account permissions.
+- A failed lookup fails the Action; it never falls back to previous values. The execution time limit is 60 seconds.
 
-## 지원과 검증
+## Support and verification
 
-Linux x64·ARM64, macOS x64·ARM64를 자체 CI에서 검증한다. Windows는 지원 범위 밖이다. `dist/index.js`와 `dist/core_bg.wasm`을 함께 사용한다. checkout 후 의존성 설치 없이 실행 가능하도록 배포 산출물을 Git에 포함한다.
+Linux x64/ARM64 and macOS x64/ARM64 are verified in this repository's CI. Windows is not supported. `dist/index.js` and `dist/core_bg.wasm` are used together. The build output is committed to Git so the Action runs after checkout without installing dependencies.
 
 ```sh
 npm ci
 npm run check
 ```
 
-테스트는 가짜 값만 사용한다. 패키징 검증은 소스와 node_modules가 없는 임시 디렉터리에서 실제 SDK/WASM을 로드하고 잘못된 토큰의 안전한 실패를 검사한다. 실제 서비스 계정·Environment 연동은 소비 저장소의 승인된 배포에서 별도로 확인한다.
+Tests use only fake values. The packaging check loads the real SDK/WASM in a temporary directory without sources or node_modules and verifies that an invalid token fails safely. Integration with a real service account and Environment is verified separately in approved deployments of consuming repositories.
 
-## SDK 유지보수
+## SDK maintenance
 
-현재 배포된 `@1password/sdk@0.5.0`의 `environments.getVariables`를 사용한다. 공식 문서는 2027-01-20에 기존 API 제거와 `list_secrets` 계열 전환을 예고하지만, 확인한 JavaScript 배포 패키지에는 새 API가 없다. 새 JS 버전이 제공되면 `src/sdk.ts`와 실제 연동 검증을 갱신해야 한다. [공식 안내](https://www.1password.dev/sdks/environments)
+The Action uses `environments.getVariables` from the currently published `@1password/sdk@0.5.0`. The official documentation announces removal of the existing API and a move to the `list_secrets` family on 2027-01-20, but the published JavaScript package we checked does not include the new API yet. When a new JS version ships, `src/sdk.ts` and the real integration check must be updated. [Official notice](https://www.1password.dev/sdks/environments)
 
-## 릴리스
+## Releases
 
-네 플랫폼 CI가 통과하고 실제 Environment 연동을 검증한 커밋을 릴리스한다. 패치 버전 태그는 변경하지 않고 `v1`만 검증한 최신 호환 릴리스로 이동한다. breaking change는 새 major로 게시한다. README의 간단한 사용 예시는 `@v1`을 사용하며 운영 소비자는 SHA를 고정할 수 있다.
+Release commits that pass CI on all four platforms and have been verified against a real Environment. Patch version tags are never moved; only `v1` moves to the latest verified compatible release. Breaking changes are published as a new major version. The short usage example in this README uses `@v1`; production consumers can pin a SHA.
 
-MIT 라이선스. SDK와 번들 의존성의 라이선스는 `licenses/`와 `dist/`의 notices를 함께 보존한다.
+MIT licensed. Keep the license notices of the SDK and bundled dependencies in `licenses/` and `dist/` together.

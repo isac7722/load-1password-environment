@@ -1,7 +1,7 @@
 {
   "name": "load-1password-environment",
   "version": "1.0.0",
-  "description": "1Password Environment를 선택적으로 읽는 GitHub Action",
+  "description": "GitHub Action that selectively loads variables from a 1Password Environment",
   "scripts": {
     "build": "node scripts/build.mjs",
     "typecheck": "tsc",
